@@ -21,6 +21,7 @@
 #include "compat.h"
 #include "rf_frontend.h"
 #include "station_g3_power.h"
+#include "environment_sensor.h"
 #include "runtime_stats.h"
 #include "battery_monitor.h"
 #include "gps_manager.h"
@@ -518,6 +519,9 @@ Snapshot capture() {
     snap.stationG3PowerW = power.powerW;
     snap.stationG3MinimumInputVoltageV = power.minimumInputVoltageV;
     snap.stationG3MaximumCurrentMa = power.maximumCurrentMa;
+#if defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)
+    snap.environment = EnvironmentSensor::snapshot();
+#endif
     return snap;
 }
 }
@@ -1631,6 +1635,7 @@ void setup() {
     // proceeds in the background. We just record when it went up;
     // the wait-until-elapsed happens at the end of setup().
     oled.begin();
+    EnvironmentSensor::begin();
     StationG3Power::begin();
 #if defined(BOARD_HELTEC_T114)
     // Push restored state onto the OLED before showSplash so the
@@ -1968,6 +1973,7 @@ void loop() {
     // Low-priority I2C telemetry runs only after radio IRQs and all host
     // transports have been drained for this iteration.
     StationG3Power::loop();
+    EnvironmentSensor::loop();
     BatteryMonitor::loop(BOARD.battery);
 
     // Lazy TCP + OTA start if STA or Ethernet came up after boot.
