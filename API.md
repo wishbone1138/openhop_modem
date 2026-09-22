@@ -134,10 +134,18 @@ Top-level keys:
 - `network`
 - `gps`
 
-On Station G2, `radio` also includes `agc_reset_interval_sec` (default `4`),
+Station G2 periodically resets the SX1262 AGC to mitigate a reported receiver
+"deafness" condition: the apparent noise floor can rise by roughly 20–30 dB
+while packet reception stops until the radio is reinitialized. This is a
+time-based workaround, not a noise-floor threshold trigger. It runs only when
+RX is idle, calls RadioLib's `resetAGC()`, and resumes continuous receive; a
+reset briefly interrupts listening.
+
+On Station G2, `radio` includes `agc_reset_interval_sec` (default `4`),
 `agc_reset_count` (successful reset and RX-restart sequences since boot), and
-`last_agc_reset_ms_ago` (`null` until the first successful reset). These can be
-compared with `counters.noise_floor_dbm`, `rx_packets`, and `crc_errors`.
+`last_agc_reset_ms_ago` (`null` until the first successful reset). Compare
+these with `counters.noise_floor_dbm`, `counters.rx_packets`, and
+`counters.crc_errors` when investigating reception.
 
 ### `GET /api/config`
 
