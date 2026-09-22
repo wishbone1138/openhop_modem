@@ -699,6 +699,7 @@ struct RfConfigPatch {
 static bool applyConfigPatch(JsonVariantConst root,
                              WifiManager::Config& cfg,
                              RfConfigPatch& rfPatch,
+                             bool& rebootRequired,
                              String& error) {
     if (!root.is<JsonObjectConst>()) {
         error = "JSON body must be an object.";
@@ -709,6 +710,7 @@ static bool applyConfigPatch(JsonVariantConst root,
 
     JsonVariantConst hostVal = obj["hostname"];
     if (!hostVal.isNull()) {
+        rebootRequired = true;
         if (!hostVal.is<const char*>()) {
             error = "hostname must be a string.";
             return false;
@@ -719,6 +721,7 @@ static bool applyConfigPatch(JsonVariantConst root,
 
     JsonVariantConst tokenVal = obj["tcp_token"];
     if (!tokenVal.isNull()) {
+        rebootRequired = true;
         if (!tokenVal.is<const char*>()) {
             error = "tcp_token must be a string.";
             return false;
@@ -732,6 +735,7 @@ static bool applyConfigPatch(JsonVariantConst root,
 
     JsonVariantConst portVal = obj["tcp_port"];
     if (!portVal.isNull()) {
+        rebootRequired = true;
         if (!portVal.is<uint16_t>()) {
             error = "tcp_port must be an integer.";
             return false;
@@ -745,6 +749,7 @@ static bool applyConfigPatch(JsonVariantConst root,
 
     JsonVariantConst staticVal = obj["use_static_ip"];
     if (!staticVal.isNull()) {
+        rebootRequired = true;
         if (!staticVal.is<bool>()) {
             error = "use_static_ip must be true or false.";
             return false;
@@ -754,6 +759,7 @@ static bool applyConfigPatch(JsonVariantConst root,
 
     JsonVariantConst antennaVal = obj["wifi_external_antenna"];
     if (!antennaVal.isNull()) {
+        rebootRequired = true;
         if (!WifiManager::hasWifiAntennaSwitch()) {
             error = "wifi_external_antenna is not supported on this board.";
             return false;
@@ -767,6 +773,7 @@ static bool applyConfigPatch(JsonVariantConst root,
 
     JsonVariantConst psVal = obj["wifi_power_save"];
     if (!psVal.isNull()) {
+        rebootRequired = true;
         if (!BOARD.has_wifi) {
             error = "wifi_power_save is not supported on this board.";
             return false;
@@ -780,6 +787,7 @@ static bool applyConfigPatch(JsonVariantConst root,
 
     JsonVariantConst gpsVal = obj["gps_enabled"];
     if (!gpsVal.isNull()) {
+        rebootRequired = true;
         if (!GPSManager::hasGpsPins()) {
             error = "gps_enabled is not supported on this board.";
             return false;
@@ -862,6 +870,7 @@ static bool applyConfigPatch(JsonVariantConst root,
 
         JsonVariantConst nestedStaticVal = network["use_static_ip"];
         if (!nestedStaticVal.isNull()) {
+            rebootRequired = true;
             if (!nestedStaticVal.is<bool>()) {
                 error = "network.use_static_ip must be true or false.";
                 return false;
@@ -869,14 +878,24 @@ static bool applyConfigPatch(JsonVariantConst root,
             cfg.useStaticIP = nestedStaticVal.as<bool>();
         }
 
-        if (!parseJsonIp(network["static_ip"], cfg.staticIP, "network.static_ip", error)) return false;
-        if (!parseJsonIp(network["subnet"], cfg.subnet, "network.subnet", error)) return false;
-        if (!parseJsonIp(network["gateway"], cfg.gateway, "network.gateway", error)) return false;
-        if (!parseJsonIp(network["dns1"], cfg.dns1, "network.dns1", error)) return false;
-        if (!parseJsonIp(network["dns2"], cfg.dns2, "network.dns2", error)) return false;
+        JsonVariantConst staticIpVal = network["static_ip"];
+        JsonVariantConst subnetVal = network["subnet"];
+        JsonVariantConst gatewayVal = network["gateway"];
+        JsonVariantConst dns1Val = network["dns1"];
+        JsonVariantConst dns2Val = network["dns2"];
+        if (!staticIpVal.isNull() || !subnetVal.isNull() || !gatewayVal.isNull() ||
+            !dns1Val.isNull() || !dns2Val.isNull()) {
+            rebootRequired = true;
+        }
+        if (!parseJsonIp(staticIpVal, cfg.staticIP, "network.static_ip", error)) return false;
+        if (!parseJsonIp(subnetVal, cfg.subnet, "network.subnet", error)) return false;
+        if (!parseJsonIp(gatewayVal, cfg.gateway, "network.gateway", error)) return false;
+        if (!parseJsonIp(dns1Val, cfg.dns1, "network.dns1", error)) return false;
+        if (!parseJsonIp(dns2Val, cfg.dns2, "network.dns2", error)) return false;
 
         JsonVariantConst antennaVal = network["wifi_external_antenna"];
         if (!antennaVal.isNull()) {
+            rebootRequired = true;
             if (!WifiManager::hasWifiAntennaSwitch()) {
                 error = "network.wifi_external_antenna is not supported on this board.";
                 return false;
@@ -1384,8 +1403,10 @@ static void handleApiConfigPost() {
 
     WifiManager::Config cfg = WifiManager::getConfig();
     RfConfigPatch rfPatch;
+    bool rebootRequired = false;
     String error;
-    if (!applyConfigPatch(doc.as<JsonVariantConst>(), cfg, rfPatch, error)) {
+    if (!applyConfigPatch(doc.as<JsonVariantConst>(), cfg, rfPatch,
+                          rebootRequired, error)) {
         sendJsonError(400, error);
         return;
     }
@@ -1413,13 +1434,15 @@ static void handleApiConfigPost() {
         return;
     }
 
-    WifiManager::saveConfig(cfg);
+    if (rebootRequired) WifiManager::saveConfig(cfg);
 
     Serial.printf("[OTA] API config updated by %s\n",
                   httpServer->client().remoteIP().toString().c_str());
 
-    sendJson(200, String("{\"status\":\"saved\",\"rebooting\":true,\"config\":") +
-                   buildConfigJson(cfg) + "}");
+    sendJson(200, String("{\"status\":\"saved\",\"rebooting\":") +
+                   (rebootRequired ? "true" : "false") +
+                   ",\"config\":" + buildConfigJson(cfg) + "}");
+    if (!rebootRequired) return;
     delay(500);
     ESP.restart();
 }

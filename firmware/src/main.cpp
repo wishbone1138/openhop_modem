@@ -367,7 +367,12 @@ static int      noiseFloorCount  = 0;
 static uint32_t lastPacketTime   = 0;
 static uint32_t lastNoiseSample  = 0;
 static uint32_t lastAgcMaintenanceMs = 0;
+static uint16_t scheduledAgcResetIntervalSec = UINT16_MAX;
 #if defined(BOARD_STATION_G2)
+// openHop repeaters can defer forwarding by several packet airtimes. Keep
+// periodic maintenance out of that response window after this modem transmits.
+static constexpr uint32_t AGC_POST_TX_QUIET_MS = 10000;
+static uint32_t lastTxCompleteMs = 0;
 static uint32_t agcResetCount = 0;
 static uint32_t lastSuccessfulAgcResetMs = 0;
 static uint32_t lastAgcSuccessLogMs = 0;
@@ -1159,6 +1164,9 @@ void processHostCommand(uint8_t cmd, const uint8_t* payload, uint16_t len,
         dio1Flag = false;
         isTxActive = false;
         lastPacketTime = millis();
+#if defined(BOARD_STATION_G2)
+        lastTxCompleteMs = lastPacketTime;
+#endif
 
         if (txOk) {
             status.tx_count++;
@@ -1716,7 +1724,6 @@ void setup() {
         LOG_R_INFO("radio.begin (TCXO=%.1f V) -> %d", initialTcxoVoltage, state);
         if (state != RADIOLIB_ERR_NONE) {
             oled.showError("SX1262 init fail!");
-            while (Serial.availableForWrite() == 0) delay(10);
             sendError(ERR_RADIO_INIT, TransportSource::USB);
             Serial.println("[BOOT] SX1262 init failed — continuing with Wi-Fi/config portal only");
             radioReady = false;
@@ -1727,20 +1734,22 @@ void setup() {
         if (!applyConfig(currentConfig)) {
             oled.showError("Config fail!");
             sendError(ERR_INVALID_CONFIG, TransportSource::USB);
-            while (true) delay(1000);
+            Serial.println("[BOOT] radio configuration failed — continuing with network management only");
+            radioReady = false;
+        } else {
+            radio.setDio1Action(onDio1Rise);
+            LOG_R_INFO("DIO1 IRQ attached on GPIO%d", (int)BOARD.pin_lora_dio1);
+
+            if (!startReceive()) {
+                oled.showError("RX start fail!");
+                Serial.println("[BOOT] RX start failed — continuing with network management only");
+                radioReady = false;
+            } else {
+                radioReady = true;
+                lastAgcMaintenanceMs = millis();
+                startRak3401ReadyLedHeartbeat();
+            }
         }
-
-        radio.setDio1Action(onDio1Rise);
-        LOG_R_INFO("DIO1 IRQ attached on GPIO%d", (int)BOARD.pin_lora_dio1);
-
-        if (!startReceive()) {
-            oled.showError("RX start fail!");
-            while (true) delay(1000);
-        }
-
-        radioReady = true;
-        lastAgcMaintenanceMs = millis();
-        startRak3401ReadyLedHeartbeat();
         }
     } else {
         Serial.println("[BOOT] no LoRa radio on this board — running as Wi-Fi/Ethernet bridge only");
@@ -1899,15 +1908,26 @@ void maybeResetAgc() {
     if (!radioReady || radioStandby || isTxActive) return;
     if (!RFFrontEnd::hasAgcResetIntervalControl()) return;
     uint16_t intervalSec = RFFrontEnd::getAgcResetIntervalSec();
+    uint32_t now = millis();
+
+    // API changes apply immediately. Start a fresh interval instead of firing
+    // an overdue reset as soon as maintenance is enabled or shortened.
+    if (intervalSec != scheduledAgcResetIntervalSec) {
+        scheduledAgcResetIntervalSec = intervalSec;
+        lastAgcMaintenanceMs = now;
+        return;
+    }
     if (intervalSec == 0) return;
 
-    uint32_t now = millis();
     uint32_t intervalMs = (uint32_t)intervalSec * 1000U;
     if ((uint32_t)(now - lastAgcMaintenanceMs) < intervalMs) return;
     if ((uint32_t)(now - lastPacketTime) < 500) return;
     if (dio1Flag) return;
 
 #if defined(BOARD_STATION_G2)
+    if (lastTxCompleteMs != 0 &&
+        (uint32_t)(now - lastTxCompleteMs) < AGC_POST_TX_QUIET_MS) return;
+
     // TX, CAD and standby transitions run synchronously on this loop; none
     // can still be in progress here. The passive preamble/header guard used
     // by TX and CAD prevents maintenance from aborting a detected packet.

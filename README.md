@@ -133,9 +133,11 @@ Per-board highlights (full pin numbers in the headers, mDNS prefix is
   20–30 dB and stops packet reception until the radio is reinitialized. To
   limit time spent in that state, Station G2 calls RadioLib's `resetAGC()`
   every 4 seconds by default during idle RX, then resumes continuous receive.
-  It defers resets during TX, standby, and detected packet reception; each
-  reset still creates a brief listening gap. `agc_reset_interval_sec` in
-  `/api/config` changes the interval or disables it with `0`.
+  It defers resets during TX, standby, detected packet reception, and for 10
+  seconds after Station G2 transmits so maintenance cannot interrupt the usual
+  repeater forwarding/response window. Each reset still creates a brief
+  listening gap. `agc_reset_interval_sec` in `/api/config` changes the interval
+  immediately without rebooting the modem, or disables it with `0`.
 - **Station G3** — BQESP32V1M N16R8 (16 MB flash + 8 MB octal PSRAM) + BQ35LORA900V1M, Station G2-compatible radio/display pins, persistent Station G3-only web/API selection of lower or higher PA PL1 mode on GPIO9 (lower by default), persistent RX-only external LNA enable/bypass on GPIO10, onboard INA219 input-voltage/current/power telemetry with since-boot minimum voltage and maximum current, optional GROVE GPS on IO7/IO15, and max SX1262 drive capped at 19 dBm. The LNA is always bypassed before TX. Remove the PA PL1/LNA P jumpers for software GPIO control; PA PL2 remains a physical jumper.
 - **WaveShare ESP32-P4-Nano** — RISC-V P4 + C6 + IP101GRI Ethernet PHY + off-board E22, runtime ETH-or-Wi-Fi (never both, see below).
 - **Heltec T114** — nRF52840 + bare SX1262 + ST7789 TFT 135×240, **no Wi-Fi/TCP/network OTA**; USB-CDC + UART transport only, OTA via Adafruit nRF52 DFU (USB) or in-app `CMD_OTA_*` over the protocol transport.
