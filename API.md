@@ -134,6 +134,11 @@ Top-level keys:
 - `network`
 - `gps`
 
+On Station G2, `radio` also includes `agc_reset_interval_sec` (default `4`),
+`agc_reset_count` (successful reset and RX-restart sequences since boot), and
+`last_agc_reset_ms_ago` (`null` until the first successful reset). These can be
+compared with `counters.noise_floor_dbm`, `rx_packets`, and `crc_errors`.
+
 ### `GET /api/config`
 
 Returns the saved editable configuration.
@@ -178,6 +183,9 @@ Accepted top-level fields:
 - `wifi_power_save` — Wi-Fi boards only; `false` disables Wi-Fi modem
   power-save for lower latency at higher power draw. Applies after the
   post-save reboot.
+- `agc_reset_interval_sec` — Station G2 and Heltec V4.3 only; integer seconds
+  from `0` to `3600`, with `0` disabling periodic maintenance. Station G2
+  defaults to `4`. The setting persists across reboots.
 - `network`
 - `pa_high_power_enabled` — Station G3 only; `false` selects the lower GPIO9
   mode and `true` selects the higher mode. The setting applies immediately and

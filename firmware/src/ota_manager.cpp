@@ -493,9 +493,18 @@ static String buildRadioJson(const RuntimeStats::Snapshot& snap) {
         body += boolJson(RFFrontEnd::isExternalLnaEnabled());
         body += F(",\"heltec_v43_fem_lna_bypassed\":");
         body += boolJson(RFFrontEnd::isFemLnaBypassed());
+    }
+    if (RFFrontEnd::hasAgcResetIntervalControl()) {
         body += F(",\"agc_reset_interval_sec\":");
         body += String(RFFrontEnd::getAgcResetIntervalSec());
     }
+#if defined(BOARD_STATION_G2)
+    body += F(",\"agc_reset_count\":");
+    body += String(snap.agcResetCount);
+    body += F(",\"last_agc_reset_ms_ago\":");
+    body += snap.agcResetCount > 0
+                ? String(snap.lastAgcResetMsAgo) : String("null");
+#endif
     body += F("}");
     return body;
 }
@@ -600,6 +609,8 @@ static String buildConfigJson(const WifiManager::Config& cfg) {
         body += boolJson(RFFrontEnd::isExternalLnaEnabled());
         body += F(",\"heltec_v43_fem_lna_bypassed\":");
         body += boolJson(RFFrontEnd::isFemLnaBypassed());
+    }
+    if (RFFrontEnd::hasAgcResetIntervalControl()) {
         body += F(",\"agc_reset_interval_sec\":");
         body += String(RFFrontEnd::getAgcResetIntervalSec());
     }
@@ -824,7 +835,7 @@ static bool applyConfigPatch(JsonVariantConst root,
 
     JsonVariantConst agcVal = obj["agc_reset_interval_sec"];
     if (!agcVal.isNull()) {
-        if (!RFFrontEnd::hasHeltecV43LnaControl()) {
+        if (!RFFrontEnd::hasAgcResetIntervalControl()) {
             error = "agc_reset_interval_sec is not supported on this board.";
             return false;
         }
@@ -893,7 +904,7 @@ static bool applyConfigPatch(JsonVariantConst root,
 
         JsonVariantConst agcVal = network["agc_reset_interval_sec"];
         if (!agcVal.isNull()) {
-            if (!RFFrontEnd::hasHeltecV43LnaControl()) {
+            if (!RFFrontEnd::hasAgcResetIntervalControl()) {
                 error = "network.agc_reset_interval_sec is not supported on this board.";
                 return false;
             }
