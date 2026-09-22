@@ -368,7 +368,7 @@ static uint32_t lastPacketTime   = 0;
 static uint32_t lastNoiseSample  = 0;
 static uint32_t lastAgcMaintenanceMs = 0;
 static uint16_t scheduledAgcResetIntervalSec = UINT16_MAX;
-#if defined(BOARD_STATION_G2)
+#if defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)
 // openHop repeaters can defer forwarding by several packet airtimes. Keep
 // periodic maintenance out of that response window after this modem transmits.
 static constexpr uint32_t AGC_POST_TX_QUIET_MS = 10000;
@@ -528,7 +528,7 @@ Snapshot capture() {
     snap.stationG3PowerW = power.powerW;
     snap.stationG3MinimumInputVoltageV = power.minimumInputVoltageV;
     snap.stationG3MaximumCurrentMa = power.maximumCurrentMa;
-#if defined(BOARD_STATION_G2)
+#if defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)
     snap.agcResetCount = agcResetCount;
     snap.lastAgcResetMsAgo = agcResetCount > 0
         ? (uint32_t)(millis() - lastSuccessfulAgcResetMs) : 0;
@@ -1164,7 +1164,7 @@ void processHostCommand(uint8_t cmd, const uint8_t* payload, uint16_t len,
         dio1Flag = false;
         isTxActive = false;
         lastPacketTime = millis();
-#if defined(BOARD_STATION_G2)
+#if defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)
         lastTxCompleteMs = lastPacketTime;
 #endif
 
@@ -1924,7 +1924,7 @@ void maybeResetAgc() {
     if ((uint32_t)(now - lastPacketTime) < 500) return;
     if (dio1Flag) return;
 
-#if defined(BOARD_STATION_G2)
+#if defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)
     if (lastTxCompleteMs != 0 &&
         (uint32_t)(now - lastTxCompleteMs) < AGC_POST_TX_QUIET_MS) return;
 
@@ -1932,6 +1932,11 @@ void maybeResetAgc() {
     // can still be in progress here. The passive preamble/header guard used
     // by TX and CAD prevents maintenance from aborting a detected packet.
     if (isReceivingPacket() || dio1Flag) return;
+
+    // Bypass any board-managed external RX LNA while RadioLib puts the
+    // SX1262 through warm sleep and calibration. startReceive() restores the
+    // configured front-end state after the reset.
+    RFFrontEnd::prepareStandby();
 
     // RadioLib retains the current SX1262 configuration through warm sleep,
     // recalibrates AGC/image rejection, and restores DIO2 switching and RX

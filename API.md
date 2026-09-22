@@ -141,7 +141,7 @@ time-based workaround, not a noise-floor threshold trigger. It runs only when
 RX is idle, calls RadioLib's `resetAGC()`, and resumes continuous receive; a
 reset briefly interrupts listening.
 
-On Station G2, `radio` includes `agc_reset_interval_sec` (default `4`),
+On Station G2 and G3, `radio` includes `agc_reset_interval_sec` (default `4`),
 `agc_reset_count` (successful reset and RX-restart sequences since boot), and
 `last_agc_reset_ms_ago` (`null` until the first successful reset). Compare
 these with `counters.noise_floor_dbm`, `counters.rx_packets`, and
@@ -165,6 +165,7 @@ Station G3 example:
   "gateway": "192.168.1.1",
   "dns1": "1.1.1.1",
   "dns2": "8.8.8.8",
+  "agc_reset_interval_sec": 4,
   "pa_high_power_enabled": false,
   "station_g3_external_lna_enabled": true
 }
@@ -181,7 +182,9 @@ RAK4631 WisMesh Ethernet security differences:
 
 ### `POST /api/config`
 
-Updates saved config and reboots the modem.
+Updates saved configuration. Radio front-end settings, including
+`agc_reset_interval_sec`, apply immediately. Changes to network, identity,
+Wi-Fi, or GPS settings reboot the modem.
 
 Accepted top-level fields:
 - `hostname`
@@ -191,9 +194,9 @@ Accepted top-level fields:
 - `wifi_power_save` — Wi-Fi boards only; `false` disables Wi-Fi modem
   power-save for lower latency at higher power draw. Applies after the
   post-save reboot.
-- `agc_reset_interval_sec` — Station G2 and Heltec V4.3 only; integer seconds
-  from `0` to `3600`, with `0` disabling periodic maintenance. Station G2
-  defaults to `4`. The setting persists across reboots.
+- `agc_reset_interval_sec` — Station G2, Station G3, and Heltec V4.3 only;
+  integer seconds from `0` to `3600`, with `0` disabling periodic maintenance.
+  Station G2 and G3 default to `4`. The setting persists across reboots.
 - `network`
 - `pa_high_power_enabled` — Station G3 only; `false` selects the lower GPIO9
   mode and `true` selects the higher mode. The setting applies immediately and
@@ -217,7 +220,8 @@ Notes:
 - set `tcp_token` to `""` to clear the openHop token
 - if `use_static_ip` is `true`, `static_ip`, `subnet`, and `gateway` must be valid
 - unsupported variants reject Station G3 PA/LNA fields rather than ignoring them
-- a successful request always reboots the modem
+- the response's `rebooting` field reports whether the submitted changes
+  require a reboot
 - RAK rejects unsupported Wi-Fi antenna, Heltec LNA, GPIO, and GPS-mode fields
   instead of silently discarding them
 - RAK responses report only `tcp_token_set`; they never echo the submitted token

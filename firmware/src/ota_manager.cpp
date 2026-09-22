@@ -498,7 +498,7 @@ static String buildRadioJson(const RuntimeStats::Snapshot& snap) {
         body += F(",\"agc_reset_interval_sec\":");
         body += String(RFFrontEnd::getAgcResetIntervalSec());
     }
-#if defined(BOARD_STATION_G2)
+#if defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)
     body += F(",\"agc_reset_count\":");
     body += String(snap.agcResetCount);
     body += F(",\"last_agc_reset_ms_ago\":");

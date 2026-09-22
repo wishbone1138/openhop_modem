@@ -22,7 +22,7 @@ struct Snapshot {
     float stationG3PowerW;
     float stationG3MinimumInputVoltageV;
     float stationG3MaximumCurrentMa;
-#if defined(BOARD_STATION_G2)
+#if defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)
     uint32_t agcResetCount;
     uint32_t lastAgcResetMsAgo;
 #endif
