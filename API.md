@@ -147,6 +147,10 @@ On Station G2 and G3, `radio` includes `agc_reset_interval_sec` (default `4`),
 these with `counters.noise_floor_dbm`, `counters.rx_packets`, and
 `counters.crc_errors` when investigating reception.
 
+The four-second Station default is intentionally enabled as a recovery policy
+for the reported receiver failure. Each maintenance attempt briefly interrupts
+listening; set `agc_reset_interval_sec` to `0` to opt out.
+
 ### `GET /api/config`
 
 Returns the saved editable configuration.
@@ -196,7 +200,8 @@ Accepted top-level fields:
   post-save reboot.
 - `agc_reset_interval_sec` — Station G2, Station G3, and Heltec V4.3 only;
   integer seconds from `0` to `3600`, with `0` disabling periodic maintenance.
-  Station G2 and G3 default to `4`. The setting persists across reboots.
+  Station G2 and G3 intentionally default to `4`; Heltec V4.3 defaults to `0`.
+  The setting persists across reboots.
 - `network`
 - `pa_high_power_enabled` — Station G3 only; `false` selects the lower GPIO9
   mode and `true` selects the higher mode. The setting applies immediately and

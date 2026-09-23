@@ -20,6 +20,7 @@
 #include "frame_parser.h"
 #include "compat.h"
 #include "rf_frontend.h"
+#include "agc_maintenance.h"
 #include "station_g3_power.h"
 #include "runtime_stats.h"
 #include "battery_monitor.h"
@@ -366,12 +367,10 @@ static float    noiseFloorSum    = 0.0f;
 static int      noiseFloorCount  = 0;
 static uint32_t lastPacketTime   = 0;
 static uint32_t lastNoiseSample  = 0;
-static uint32_t lastAgcMaintenanceMs = 0;
-static uint16_t scheduledAgcResetIntervalSec = UINT16_MAX;
+static AgcMaintenance::Schedule agcMaintenanceSchedule;
 #if defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)
 // openHop repeaters can defer forwarding by several packet airtimes. Keep
 // periodic maintenance out of that response window after this modem transmits.
-static constexpr uint32_t AGC_POST_TX_QUIET_MS = 10000;
 static uint32_t lastTxCompleteMs = 0;
 static uint32_t agcResetCount = 0;
 static uint32_t lastSuccessfulAgcResetMs = 0;
@@ -1747,7 +1746,7 @@ void setup() {
         }
 
         radioReady = true;
-        lastAgcMaintenanceMs = millis();
+        agcMaintenanceSchedule.recordAttempt(millis());
         startRak3401ReadyLedHeartbeat();
         }
     } else {
@@ -1904,64 +1903,61 @@ void sampleNoiseFloor() {
 }
 
 void maybeResetAgc() {
-    if (!radioReady || radioStandby || isTxActive) return;
     if (!RFFrontEnd::hasAgcResetIntervalControl()) return;
-    uint16_t intervalSec = RFFrontEnd::getAgcResetIntervalSec();
-    uint32_t now = millis();
 
-    // API changes apply immediately. Start a fresh interval instead of firing
-    // an overdue reset as soon as maintenance is enabled or shortened.
-    if (intervalSec != scheduledAgcResetIntervalSec) {
-        scheduledAgcResetIntervalSec = intervalSec;
-        lastAgcMaintenanceMs = now;
-        return;
-    }
-    if (intervalSec == 0) return;
-
-    uint32_t intervalMs = (uint32_t)intervalSec * 1000U;
-    if ((uint32_t)(now - lastAgcMaintenanceMs) < intervalMs) return;
-    if ((uint32_t)(now - lastPacketTime) < 500) return;
-    if (dio1Flag) return;
+    AgcMaintenance::Conditions conditions;
+    conditions.radioReady = radioReady;
+    conditions.intentionalStandby = radioStandby;
+    conditions.txActive = isTxActive;
+    conditions.dio1Pending = dio1Flag;
+    conditions.intervalSec = RFFrontEnd::getAgcResetIntervalSec();
+    conditions.nowMs = millis();
+    conditions.lastPacketMs = lastPacketTime;
 
 #if defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)
-    if (lastTxCompleteMs != 0 &&
-        (uint32_t)(now - lastTxCompleteMs) < AGC_POST_TX_QUIET_MS) return;
+    conditions.lastTxCompleteMs = lastTxCompleteMs;
+    conditions.postTxQuietMs = AgcMaintenance::STATION_POST_TX_QUIET_MS;
+    if (!AgcMaintenance::shouldAttempt(
+            agcMaintenanceSchedule, conditions,
+            []() { return isReceivingPacket() || dio1Flag; })) return;
 
-    // TX, CAD and standby transitions run synchronously on this loop; none
-    // can still be in progress here. The passive preamble/header guard used
-    // by TX and CAD prevents maintenance from aborting a detected packet.
-    if (isReceivingPacket() || dio1Flag) return;
-
-    // Bypass any board-managed external RX LNA while RadioLib puts the
-    // SX1262 through warm sleep and calibration. startReceive() restores the
-    // configured front-end state after the reset.
-    RFFrontEnd::prepareStandby();
-
-    // RadioLib retains the current SX1262 configuration through warm sleep,
-    // recalibrates AGC/image rejection, and restores DIO2 switching and RX
-    // boost. It leaves the chip in standby, so always use OpenHop's RX path.
-    int16_t state = radio.resetAGC();
-    bool rxRestarted = startReceive();
-    lastAgcMaintenanceMs = millis();  // also back off failures; no log storm
-    if (state != RADIOLIB_ERR_NONE) {
-        Serial.printf("[AGC] reset failed: %d\n", state);
+    // SetSleep is valid only from SX126x standby. Bypass the external LNA,
+    // enter radio standby explicitly, then let RadioLib perform its warm-sleep
+    // AGC calibration. Always use OpenHop's RX path afterward so failures also
+    // get a best-effort recovery and the configured front end is restored.
+    const auto result = AgcMaintenance::run(
+        RADIOLIB_ERR_NONE,
+        []() { RFFrontEnd::prepareStandby(); },
+        []() { return radio.standby(); },
+        []() { return radio.resetAGC(); },
+        []() { return startReceive(); });
+    const uint32_t attemptedAt = millis();
+    agcMaintenanceSchedule.recordAttempt(attemptedAt);
+    if (result.standbyState != RADIOLIB_ERR_NONE) {
+        Serial.printf("[AGC] standby failed: %d\n", result.standbyState);
     }
-    if (!rxRestarted) {
+    if (result.resetAttempted && result.resetState != RADIOLIB_ERR_NONE) {
+        Serial.printf("[AGC] reset failed: %d\n", result.resetState);
+    }
+    if (!result.rxRestarted) {
         Serial.println("[AGC] RX restart failed");
     }
-    if (state != RADIOLIB_ERR_NONE || !rxRestarted) return;
+    if (!result.succeeded(RADIOLIB_ERR_NONE)) return;
 
-    lastSuccessfulAgcResetMs = lastAgcMaintenanceMs;
+    lastSuccessfulAgcResetMs = attemptedAt;
     ++agcResetCount;
     noiseFloorSum = 0.0f;
     noiseFloorCount = 0;
     if (agcResetCount == 1 ||
-        (uint32_t)(lastAgcMaintenanceMs - lastAgcSuccessLogMs) >= 60000U) {
+        (uint32_t)(attemptedAt - lastAgcSuccessLogMs) >= 60000U) {
         Serial.printf("[AGC] SX1262 AGC reset; RX restarted (count=%lu)\n",
                       (unsigned long)agcResetCount);
-        lastAgcSuccessLogMs = lastAgcMaintenanceMs;
+        lastAgcSuccessLogMs = attemptedAt;
     }
 #else
+    if (!AgcMaintenance::shouldAttempt(
+            agcMaintenanceSchedule, conditions, []() { return false; })) return;
+
     // Heltec V4.3 can clamp its apparent noise floor after strong
     // out-of-band interference. A brief RX restart mirrors the
     // agc.reset.interval behaviour used by LoRa firmwares such as
@@ -1969,10 +1965,11 @@ void maybeResetAgc() {
     radio.standby();
     delay(2);
     startReceive();
-    lastAgcMaintenanceMs = now;
+    agcMaintenanceSchedule.recordAttempt(millis());
     noiseFloorSum = 0.0f;
     noiseFloorCount = 0;
-    LOG_R_INFO("agc.reset.interval fired after %u s", (unsigned)intervalSec);
+    LOG_R_INFO("agc.reset.interval fired after %u s",
+               (unsigned)conditions.intervalSec);
 #endif
 }
 

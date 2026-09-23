@@ -139,6 +139,8 @@ default during idle RX, then resume continuous receive. Resets are deferred
 during TX, standby, detected packet reception, and for 10 seconds after a
 Station transmits so maintenance cannot interrupt the usual repeater
 forwarding/response window. Each reset still creates a brief listening gap.
+The enabled Station default is intentional for recovery from the reported
+failure mode; installations that prefer no periodic listening gaps can opt out.
 `agc_reset_interval_sec` in `/api/config` changes the interval immediately
 without rebooting the modem, or disables it with `0`.
 - **WaveShare ESP32-P4-Nano** — RISC-V P4 + C6 + IP101GRI Ethernet PHY + off-board E22, runtime ETH-or-Wi-Fi (never both, see below).
