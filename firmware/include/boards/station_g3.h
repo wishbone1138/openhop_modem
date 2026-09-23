@@ -83,5 +83,5 @@ inline const BoardConfig BOARD = {
         .lna_default_enabled = true,
         .lna_user_selectable = true,
     },
-    .sx126x_agc_reset_interval_ms = 4000,
+    .sx126x_agc_reset_interval_ms = 0,
 };

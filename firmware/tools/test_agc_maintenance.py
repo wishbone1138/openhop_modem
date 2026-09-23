@@ -31,6 +31,12 @@ def main() -> int:
         subprocess.run(command, check=True)
         subprocess.run([str(executable)], check=True)
 
+    for board in ("station_g2", "station_g3"):
+        board_config = (
+            firmware_dir / "include" / "boards" / f"{board}.h"
+        ).read_text()
+        assert ".sx126x_agc_reset_interval_ms = 0," in board_config
+
     print("AGC maintenance contract: PASS")
     return 0
 
