@@ -1724,6 +1724,7 @@ void setup() {
         LOG_R_INFO("radio.begin (TCXO=%.1f V) -> %d", initialTcxoVoltage, state);
         if (state != RADIOLIB_ERR_NONE) {
             oled.showError("SX1262 init fail!");
+            while (Serial.availableForWrite() == 0) delay(10);
             sendError(ERR_RADIO_INIT, TransportSource::USB);
             Serial.println("[BOOT] SX1262 init failed — continuing with Wi-Fi/config portal only");
             radioReady = false;
@@ -1734,22 +1735,20 @@ void setup() {
         if (!applyConfig(currentConfig)) {
             oled.showError("Config fail!");
             sendError(ERR_INVALID_CONFIG, TransportSource::USB);
-            Serial.println("[BOOT] radio configuration failed — continuing with network management only");
-            radioReady = false;
-        } else {
-            radio.setDio1Action(onDio1Rise);
-            LOG_R_INFO("DIO1 IRQ attached on GPIO%d", (int)BOARD.pin_lora_dio1);
-
-            if (!startReceive()) {
-                oled.showError("RX start fail!");
-                Serial.println("[BOOT] RX start failed — continuing with network management only");
-                radioReady = false;
-            } else {
-                radioReady = true;
-                lastAgcMaintenanceMs = millis();
-                startRak3401ReadyLedHeartbeat();
-            }
+            while (true) delay(1000);
         }
+
+        radio.setDio1Action(onDio1Rise);
+        LOG_R_INFO("DIO1 IRQ attached on GPIO%d", (int)BOARD.pin_lora_dio1);
+
+        if (!startReceive()) {
+            oled.showError("RX start fail!");
+            while (true) delay(1000);
+        }
+
+        radioReady = true;
+        lastAgcMaintenanceMs = millis();
+        startRak3401ReadyLedHeartbeat();
         }
     } else {
         Serial.println("[BOOT] no LoRa radio on this board — running as Wi-Fi/Ethernet bridge only");
