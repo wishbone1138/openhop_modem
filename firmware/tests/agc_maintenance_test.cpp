@@ -9,6 +9,19 @@ namespace {
 constexpr int16_t OK = 0;
 constexpr int16_t FAILURE = -1;
 
+void testFormIntervalParsing() {
+    uint16_t value = 123;
+    for (const auto& entry : {"0", "4", "3600", "0004"}) {
+        assert(AgcMaintenance::parseIntervalSeconds(entry, std::string(entry).size(), value));
+    }
+    assert(value == 4);
+    for (const auto& entry : {"", "-1", "4junk", "3.5", "3601", "65536", " 4", "4 "}) {
+        assert(!AgcMaintenance::parseIntervalSeconds(entry, std::string(entry).size(), value));
+        assert(value == 4);
+    }
+    assert(!AgcMaintenance::parseIntervalSeconds(nullptr, 1, value));
+}
+
 void testSuccessfulOrdering() {
     std::string calls;
     const auto result = AgcMaintenance::run(
@@ -180,6 +193,7 @@ void testMillisWrap() {
 }  // namespace
 
 int main() {
+    testFormIntervalParsing();
     testSuccessfulOrdering();
     testStandbyFailureSkipsResetAndRecoversRx();
     testResetFailureRecoversRx();

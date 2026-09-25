@@ -1,8 +1,22 @@
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 namespace AgcMaintenance {
+
+// Strict HTTP form value parsing; do not accept toInt()'s partial matches.
+inline bool parseIntervalSeconds(const char* text, size_t length, uint16_t& value) {
+    if (text == nullptr || length == 0 || length > 4) return false;
+    uint16_t parsed = 0;
+    for (size_t i = 0; i < length; ++i) {
+        if (text[i] < '0' || text[i] > '9') return false;
+        parsed = parsed * 10 + (text[i] - '0');
+    }
+    if (parsed > 3600) return false;
+    value = parsed;
+    return true;
+}
 
 constexpr uint32_t RECENT_PACKET_GUARD_MS = 500;
 constexpr uint32_t STATION_POST_TX_QUIET_MS = 10000;

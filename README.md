@@ -139,8 +139,9 @@ are deferred during TX, standby, detected packet reception, and for 10 seconds
 after a Station transmits so maintenance cannot interrupt the usual repeater
 forwarding/response window. Each reset still creates a brief listening gap, so
 periodic maintenance is disabled by default. Set `agc_reset_interval_sec` to
-`4` in `/api/config` to enable the recommended four-second interval; changes
-apply immediately without rebooting the modem, and `0` disables the workaround.
+`4` in `/api/config` or use the Station AGC Recovery control in the modem
+WebUI to enable the recommended four-second interval; changes apply
+immediately without rebooting the modem, and `0` disables the workaround.
 - **WaveShare ESP32-P4-Nano** — RISC-V P4 + C6 + IP101GRI Ethernet PHY + off-board E22, runtime ETH-or-Wi-Fi (never both, see below).
 - **Heltec T114** — nRF52840 + bare SX1262 + ST7789 TFT 135×240, **no Wi-Fi/TCP/network OTA**; USB-CDC + UART transport only, OTA via Adafruit nRF52 DFU (USB) or in-app `CMD_OTA_*` over the protocol transport.
 - **RAK4631 USB** — RAK4631 nRF52840 core on a compatible WisBlock base, using the same proven internal SX1262 pins, DIO2 RF-switch policy, SPIM2 radio bus, and 22 dBm ceiling as the Ethernet build. The `rak4631_usb` environment omits the RAK13800 dependency and all W5100S/TCP/network initialization; native USB-CDC is the only modem transport.

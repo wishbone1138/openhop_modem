@@ -3,6 +3,7 @@
 // dual-bank rollback guarded by a sanity watchdog.
 // =============================================================
 #include "ota_manager.h"
+#include "agc_maintenance.h"
 #include "board_config.h"
 #include "ethernet_manager.h"
 #include "gps_manager.h"
@@ -1120,6 +1121,20 @@ static void handleRoot() {
                   "</form><p class='m'>Settings apply immediately and persist across reboots. Unchecked LNA = GPIO5/CTX HIGH, external LNA bypassed.</p></div></details>");
     }
 
+#if defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)
+    body += F("<details open><summary>Station AGC Recovery</summary><div class='inside'>"
+              "<p>Optional workaround for receiver deafness. Each reset briefly interrupts reception; "
+              "disabled by default. The recommended interval for affected stations is 4 seconds.</p>"
+              "<form method='POST' action='/agc-reset'>"
+              "<label>AGC reset interval (seconds; 0 disables)"
+              "<input name='agc_reset_interval_sec' type='number' min='0' max='3600' step='1' required value='");
+    body += String(RFFrontEnd::getAgcResetIntervalSec());
+    body += F("'></label><button type='submit'>Save AGC interval</button>"
+              "</form><p class='m'>Applies immediately and persists across reboots. "
+              "Resets are deferred during active reception and for 10 seconds after TX.</p>"
+              "</div></details>");
+#endif
+
     if (RFFrontEnd::hasPaModeControl() && RFFrontEnd::hasStationG3LnaControl()) {
         body += F("<details open><summary>Station G3 RF Front-End</summary><div class='inside'>"
                   "<p>Configure the Station G3 PA level on GPIO9 and receive-only external LNA on GPIO10.</p>"
@@ -1561,6 +1576,29 @@ static void handleGpsSave() {
 }
 
 
+#if defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)
+static void handleStationAgcSave() {
+    if (!checkAuth()) return;
+    if (!httpServer->hasArg("agc_reset_interval_sec")) {
+        httpServer->send(400, "text/plain", "AGC interval is required.\n");
+        return;
+    }
+    const String raw = httpServer->arg("agc_reset_interval_sec");
+    uint16_t interval = 0;
+    if (!AgcMaintenance::parseIntervalSeconds(raw.c_str(), raw.length(), interval)) {
+        httpServer->send(400, "text/plain", "AGC interval must be an integer from 0 to 3600.\n");
+        return;
+    }
+    if (!RFFrontEnd::setAgcResetIntervalSec(interval, true)) {
+        httpServer->send(500, "text/plain", "Failed to save AGC interval.\n");
+        return;
+    }
+    sendSimplePage(F("AGC interval saved"), F("AGC interval saved"),
+                   interval == 0 ? F("Periodic AGC recovery is disabled. No reboot required.")
+                                 : F("Periodic AGC recovery is enabled. No reboot required."));
+}
+#endif
+
 static void handleRfLnaSave() {
     if (!checkAuth()) return;
 
@@ -1799,6 +1837,9 @@ void begin(const String& hn, const String& tk) {
     httpServer->on("/network", HTTP_POST, handleNetworkSave);
     httpServer->on("/gps",     HTTP_POST, handleGpsSave);
     httpServer->on("/rf-lna",  HTTP_POST, handleRfLnaSave);
+#if defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)
+    httpServer->on("/agc-reset", HTTP_POST, handleStationAgcSave);
+#endif
     if (RFFrontEnd::hasPaModeControl() && RFFrontEnd::hasStationG3LnaControl()) {
         httpServer->on("/rf-pa", HTTP_POST, handleRfPaSave);
     }

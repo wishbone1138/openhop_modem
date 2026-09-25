@@ -37,6 +37,16 @@ def main() -> int:
         ).read_text()
         assert ".sx126x_agc_reset_interval_ms = 0," in board_config
 
+    web = (firmware_dir / "src" / "ota_manager.cpp").read_text()
+    assert "<summary>Station AGC Recovery</summary>" in web
+    assert "<form method='POST' action='/agc-reset'>" in web
+    assert 'httpServer->on("/agc-reset", HTTP_POST, handleStationAgcSave);' in web
+    handler = web.split("static void handleStationAgcSave() {", 1)[1].split("\n}\n", 1)[0]
+    assert handler.index("if (!checkAuth()) return;") < handler.index("httpServer->hasArg(")
+    assert "AgcMaintenance::parseIntervalSeconds(raw.c_str(), raw.length(), interval)" in handler
+    assert "RFFrontEnd::setAgcResetIntervalSec(interval, true)" in handler
+    assert "ESP.restart()" not in handler
+
     print("AGC maintenance contract: PASS")
     return 0
 
