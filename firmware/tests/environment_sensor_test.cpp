@@ -1,12 +1,6 @@
-// From firmware/, after `pio run -e station_g2` has fetched dependencies.
-// Run once with BOARD_STATION_G2 and again with BOARD_STATION_G3:
-// gcc -std=c99 -c .pio/libdeps/station_g2/BME280_SensorAPI/bme280.c -o /tmp/openhop-bme280.o
-// g++ -std=c++17 -Wall -Wextra -Werror -DBOARD_STATION_G2 -DARDUINO_ARCH_ESP32
-//     -Itests/stubs/environment -Iinclude -I.pio/libdeps/station_g2/BME280_SensorAPI
-//     tests/environment_sensor_test.cpp src/environment_sensor.cpp
-//     /tmp/openhop-bme280.o -o /tmp/openhop-environment-test
-// /tmp/openhop-environment-test
-// Join the g++ lines into one command. No hardware is accessed.
+// Run both Station G2 and G3 host tests with:
+//   python3 firmware/tools/test_environment_sensor.py
+// The runner fetches the pinned Bosch dependency when needed. No hardware is accessed.
 #include "environment_sensor.h"
 #include <Arduino.h>
 #include <Wire.h>
