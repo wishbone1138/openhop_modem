@@ -88,4 +88,7 @@ inline const BoardConfig BOARD = {
 
     .static_gpios = {},
     .static_gpio_count = 0,
+
+    // Optional SX1262 deafness workaround; disabled until explicitly enabled.
+    .sx126x_agc_reset_interval_ms = 0,
 };

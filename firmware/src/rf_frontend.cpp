@@ -58,10 +58,12 @@ static void applyHeltecV43LnaState() {
 }
 #endif
 
-#if (defined(BOARD_HELTEC_V43) || defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)) && defined(ARDUINO_ARCH_ESP32)
+#if (defined(BOARD_HELTEC_V43) || defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3) || defined(BOARD_ETHERMESH_1W)) && defined(ARDUINO_ARCH_ESP32)
 static constexpr uint16_t MAX_AGC_RESET_INTERVAL_SEC = 3600;
 #if defined(BOARD_HELTEC_V43)
 static constexpr const char* AGC_RESET_INTERVAL_KEY = "v43_agc_sec";
+#elif defined(BOARD_ETHERMESH_1W)
+static constexpr const char* AGC_RESET_INTERVAL_KEY = "em_agc_sec";
 #elif defined(BOARD_STATION_G3)
 static constexpr const char* AGC_RESET_INTERVAL_KEY = "g3_agc_sec";
 #else
@@ -124,7 +126,7 @@ void begin() {
     }
     applyHeltecV43LnaState();
 #endif
-#if (defined(BOARD_HELTEC_V43) || defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)) && defined(ARDUINO_ARCH_ESP32)
+#if (defined(BOARD_HELTEC_V43) || defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3) || defined(BOARD_ETHERMESH_1W)) && defined(ARDUINO_ARCH_ESP32)
     agcResetIntervalSec =
         (uint16_t)(BOARD.sx126x_agc_reset_interval_ms / 1000U);
     Preferences agcPrefs;
@@ -288,7 +290,7 @@ void prepareStandby() {
 }
 
 uint16_t getAgcResetIntervalSec() {
-#if (defined(BOARD_HELTEC_V43) || defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)) && defined(ARDUINO_ARCH_ESP32)
+#if (defined(BOARD_HELTEC_V43) || defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3) || defined(BOARD_ETHERMESH_1W)) && defined(ARDUINO_ARCH_ESP32)
     return agcResetIntervalSec;
 #else
     return 0;
@@ -296,7 +298,7 @@ uint16_t getAgcResetIntervalSec() {
 }
 
 bool hasAgcResetIntervalControl() {
-#if (defined(BOARD_HELTEC_V43) || defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)) && defined(ARDUINO_ARCH_ESP32)
+#if (defined(BOARD_HELTEC_V43) || defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3) || defined(BOARD_ETHERMESH_1W)) && defined(ARDUINO_ARCH_ESP32)
     return true;
 #else
     return false;
@@ -304,7 +306,7 @@ bool hasAgcResetIntervalControl() {
 }
 
 bool setAgcResetIntervalSec(uint16_t intervalSec, bool persist) {
-#if (defined(BOARD_HELTEC_V43) || defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3)) && defined(ARDUINO_ARCH_ESP32)
+#if (defined(BOARD_HELTEC_V43) || defined(BOARD_STATION_G2) || defined(BOARD_STATION_G3) || defined(BOARD_ETHERMESH_1W)) && defined(ARDUINO_ARCH_ESP32)
     if (intervalSec > MAX_AGC_RESET_INTERVAL_SEC) {
         intervalSec = MAX_AGC_RESET_INTERVAL_SEC;
     }

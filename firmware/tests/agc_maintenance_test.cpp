@@ -66,7 +66,7 @@ AgcMaintenance::Conditions idleAt(uint32_t nowMs) {
     conditions.intervalSec = 4;
     conditions.nowMs = nowMs;
     conditions.lastPacketMs = nowMs - 1000U;
-    conditions.postTxQuietMs = AgcMaintenance::STATION_POST_TX_QUIET_MS;
+    conditions.postTxQuietMs = AgcMaintenance::SX126X_POST_TX_QUIET_MS;
     return conditions;
 }
 

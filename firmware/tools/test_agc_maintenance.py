@@ -31,7 +31,7 @@ def main() -> int:
         subprocess.run(command, check=True)
         subprocess.run([str(executable)], check=True)
 
-    for board in ("station_g2", "station_g3"):
+    for board in ("station_g2", "station_g3", "ethermesh_1w"):
         board_config = (
             firmware_dir / "include" / "boards" / f"{board}.h"
         ).read_text()

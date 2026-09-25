@@ -134,14 +134,14 @@ Top-level keys:
 - `network`
 - `gps`
 
-Station G2 and G3 periodically reset the SX1262 AGC to mitigate a reported
-receiver "deafness" condition: the apparent noise floor can rise by roughly
-20–30 dB while packet reception stops until the radio is reinitialized. This
-is a time-based workaround, not a noise-floor threshold trigger. It runs only
-when RX is idle, calls RadioLib's `resetAGC()`, and resumes continuous receive;
-a reset briefly interrupts listening.
+Station G2, Station G3, and EtherMesh-1W can periodically reset the SX1262 AGC
+to mitigate a reported receiver "deafness" condition: the apparent noise floor
+can rise by roughly 20–30 dB while packet reception stops until the radio is
+reinitialized. This is a time-based workaround, not a noise-floor threshold
+trigger. It runs only when RX is idle, calls RadioLib's `resetAGC()`, and
+resumes continuous receive; a reset briefly interrupts listening.
 
-On Station G2 and G3, `radio` includes `agc_reset_interval_sec` (default `0`),
+On Station G2, Station G3, and EtherMesh-1W, `radio` includes `agc_reset_interval_sec` (default `0`),
 `agc_reset_count` (successful reset and RX-restart sequences since boot), and
 `last_agc_reset_ms_ago` (`null` until the first successful reset). Compare
 these with `counters.noise_floor_dbm`, `counters.rx_packets`, and
@@ -198,7 +198,7 @@ Accepted top-level fields:
 - `wifi_power_save` — Wi-Fi boards only; `false` disables Wi-Fi modem
   power-save for lower latency at higher power draw. Applies after the
   post-save reboot.
-- `agc_reset_interval_sec` — Station G2, Station G3, and Heltec V4.3 only;
+- `agc_reset_interval_sec` — Station G2, Station G3, EtherMesh-1W, and Heltec V4.3 only;
   integer seconds from `0` to `3600`, with `0` disabling periodic maintenance.
   The supported boards default to `0`. The setting persists across reboots.
 - `network`

@@ -125,18 +125,20 @@ Per-board highlights (full pin numbers in the headers, mDNS prefix is
 - **Ikoka Stick** — XIAO ESP32-S3 + E22P868M30S, EN-held + DIO2-as-RF-switch, max 30 dBm chip / +10 dB PA, external OLED.
 - **XIAO Wio-SX1262** — Seeed XIAO ESP32-S3 + bare SX1262, no OLED.
 - **MeshSmith Photon-1W ESP32-C6** — Seeed XIAO ESP32-C6 + Photon 1 W SX1262/E22P class front end, Photon XIAO pinout (D1 DIO1, D2 reset, D3 busy, D4 NSS, D5 RXEN, D8/D9/D10 SPI), Wi-Fi/TCP + AP provisioning + web UI/stats/OTA.
+- **MeshSmith EtherMesh-1W** — ESP32-P4 + Ethernet + E22P/SX1262 1 W radio, with optional persistent periodic SX1262 AGC reset maintenance (disabled by default).
 - **LilyGO T3-S3** — bare SX1262 + onboard SSD1306, native USB-CDC.
 - **LilyGO T-Beam-S3 Supreme** — bare SX1262 + onboard L76K GNSS + 1.3" SH1106 OLED, native USB-CDC. LoRa/GNSS/OLED power rails are gated by an onboard AXP2101 PMU chip (`pmu_manager.cpp` / `BoardConfig.pmu`) on its own I2C bus rather than plain GPIOs — the only board in this fleet wired that way.
 - **RAK3112 WisMesh** — SX1262 inside the RAK3112 module, no OLED.
 - **Station G2** — SX1262 + high-power PA/LNA, SH1106 display, max SX1262 drive capped at 19 dBm.
 - **Station G3** — BQESP32V1M N16R8 (16 MB flash + 8 MB octal PSRAM) + BQ35LORA900V1M, Station G2-compatible radio/display pins, persistent Station G3-only web/API selection of lower or higher PA PL1 mode on GPIO9 (lower by default), persistent RX-only external LNA enable/bypass on GPIO10, onboard INA219 input-voltage/current/power telemetry with since-boot minimum voltage and maximum current, optional GROVE GPS on IO7/IO15, and max SX1262 drive capped at 19 dBm. The LNA is always bypassed before TX and during periodic AGC maintenance. Remove the PA PL1/LNA P jumpers for software GPIO control; PA PL2 remains a physical jumper.
 
-Station G2 and G3 can experience a reported SX1262 receiver failure mode in
+Station G2, Station G3, and EtherMesh-1W can use a workaround for a reported
+SX1262 receiver failure mode in
 which the apparent noise floor rises by roughly 20–30 dB and packet reception
 stops until the radio is reinitialized. The optional workaround calls
 RadioLib's `resetAGC()` during idle RX, then resumes continuous receive. Resets
 are deferred during TX, standby, detected packet reception, and for 10 seconds
-after a Station transmits so maintenance cannot interrupt the usual repeater
+after the modem transmits so maintenance cannot interrupt the usual repeater
 forwarding/response window. Each reset still creates a brief listening gap, so
 periodic maintenance is disabled by default. Set `agc_reset_interval_sec` to
 `4` in `/api/config` to enable the recommended four-second interval; changes

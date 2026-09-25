@@ -5,7 +5,7 @@
 namespace AgcMaintenance {
 
 constexpr uint32_t RECENT_PACKET_GUARD_MS = 500;
-constexpr uint32_t STATION_POST_TX_QUIET_MS = 10000;
+constexpr uint32_t SX126X_POST_TX_QUIET_MS = 10000;
 
 struct Schedule {
     uint32_t lastAttemptMs = 0;
